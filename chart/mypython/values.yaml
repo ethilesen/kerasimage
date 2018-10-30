@@ -16,7 +16,7 @@ livenessProbe:
 service:
   name: python
   type: NodePort
-  servicePort: 3000
+  servicePort: 5000
 hpa:
   enabled: false
   minReplicas: 1

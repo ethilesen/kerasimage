@@ -1,7 +1,7 @@
 # The container name used for the run container
-container-name-run : "mypython-flask-run"
+container-name-run : "kerasimage"
 # The container name used for the tools container
-container-name-tools : "mypython-flask-tools"
+container-name-tools : "kerasimage-tools"
 
 # The project root on the host for the run container to mount to container-path-run
 host-path-run : "."
@@ -14,7 +14,7 @@ container-path-run : "/app"
 container-path-tools : "/app"
 
 # The port mappings between the host and the container in the form [host:container]
-container-port-map : "3000:3000"
+container-port-map : "5000:5000"
 # The port mappings between the host and the container for the debug port in the form [host:container]
 container-port-map-debug : "5858:5858"
 
@@ -24,21 +24,21 @@ dockerfile-run : "Dockerfile"
 dockerfile-tools : "Dockerfile-tools"
 
 # The name of image to create from dockerfile-run
-image-name-run : "mypython-flask-run"
+image-name-run : "kerasimage-run"
 # The name of image to create from dockerfile-tools
-image-name-tools : "mypython-flask-tools"
+image-name-tools : "kerasimage-tools"
 
 # The command to build the code and docker image for RUN
-build-cmd-run : "python manage.py build"
+build-cmd-run : "python3 manage.py build"
 # The command to execute tests for the code in the tools container
-test-cmd : "python manage.py test"
+test-cmd : "python3 manage.py test"
 # The command to build the code and docker image for DEBUG
-build-cmd-debug : "python manage.py build"
+build-cmd-debug : "python3 manage.py build"
 
 # The command to run the code in the run container
 run-cmd : ""
 # The command to execute debug of the code in the tools container
-debug-cmd : "python manage.py debug"
+debug-cmd : "python3 manage.py debug"
 # The command to stop the code
 stop-cmd : ""
 
