@@ -5,4 +5,5 @@ RUN apt update && \
     pip3 install -r requirements.txt
 COPY . /app
 WORKDIR /app
+ENV FLASK_APP=server/__init__.py
 CMD ["python3", "manage.py", "start", "0.0.0.0:5000"]

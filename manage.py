@@ -1,74 +1,127 @@
-# import the necessary packages
-from keras.applications import ResNet50
-from keras.preprocessing.image import img_to_array
-from keras.applications import imagenet_utils
-from PIL import Image
-import numpy as np
-import flask
-import io
+import os, sys, argparse, subprocess, signal
 
-# initialize our Flask application and the Keras model
-app = flask.Flask(__name__)
-model = None
+# Project defaults
+FLASK_APP = 'server/__init__.py'
+DEFAULT_IP = '0.0.0.0:5000'
 
-def load_model():
-	# load the pre-trained Keras model (here we are using a model
-	# pre-trained on ImageNet and provided by Keras, but you can
-	# substitute in your own networks just as easily)
-	global model
-	model = ResNet50(weights="imagenet")
+class Command:
+	def __init__(self, name, descr, runcmd, env={}):
+		self.name = name
+		self.descr = descr
+		self.runcmd = runcmd
+		self.env = env
 
-def prepare_image(image, target):
-	# if the image mode is not RGB, convert it
-	if image.mode != "RGB":
-		image = image.convert("RGB")
+	def run(self, conf):
+		cmd = self.runcmd(conf)
+		env = os.environ
+		env.update(conf)
+		env.update(self.env)
+		subprocess.call(cmd, env=env, shell=True)
 
-	# resize the input image and preprocess it
-	image = image.resize(target)
-	image = img_to_array(image)
-	image = np.expand_dims(image, axis=0)
-	image = imagenet_utils.preprocess_input(image)
+class CommandManager:
+	def __init__(self):
+		self.commands = {}
 
-	# return the processed image
-	return image
+	def add(self, command):
+		self.commands[command.name] = command
 
-@app.route("/predict", methods=["POST"])
-def predict():
-	# initialize the data dictionary that will be returned from the
-	# view
-	data = {"success": False}
+	def configure(self, conf):
+		self.conf = conf
 
-	# ensure an image was properly uploaded to our endpoint
-	if flask.request.method == "POST":
-		if flask.request.files.get("image"):
-			# read the image in PIL format
-			image = flask.request.files["image"].read()
-			image = Image.open(io.BytesIO(image))
+	def run(self, command):
+		if command in self.commands:
+			self.commands[command].run(self.conf)
+		else:
+			print("invalid command specified\n")
+			print(self.availableCommands())
 
-			# preprocess the image and prepare it for classification
-			image = prepare_image(image, target=(224, 224))
+	def availableCommands(self):
+		commands = sorted(self.commands.values(), key=lambda c: c.name)
+		space = max([len(c.name) for c in commands]) + 2
+		description = 'available subcommands:\n'
+		for c in commands:
+			description += '  ' + c.name + ' ' * (space - len(c.name)) + c.descr + '\n'
+		return description
 
-			# classify the input image and then initialize the list
-			# of predictions to return to the client
-			preds = model.predict(image)
-			results = imagenet_utils.decode_predictions(preds)
-			data["predictions"] = []
+cm = CommandManager()
 
-			# loop over the results and add them to the list of
-			# returned predictions
-			for (imagenetID, label, prob) in results[0]:
-				r = {"label": label, "probability": float(prob)}
-				data["predictions"].append(r)
+cm.add(Command(
+	"build",
+	"compiles python files in project into .pyc binaries",
+	lambda c: 'python -m compileall .'))
 
-			# indicate that the request was a success
-			data["success"] = True
+cm.add(Command(
+	"start",
+	"runs server with gunicorn in a production setting",
+	lambda c: 'gunicorn -t 300 -b {0}:{1} server:app'.format(c['host'], c['port']),
+	{
+		'FLASK_APP': FLASK_APP,
+		'FLASK_DEBUG': 'false'
+	}))
 
-	# return the data dictionary as a JSON response
-	return flask.jsonify(data)
+cm.add(Command(
+	"run",
+	"runs dev server using Flask's native debugger & backend reloader",
+	lambda c: 'python -m flask run --host={0} --port={1} --debugger --reload'.format(c['host'], c['port']),
+	{
+		'FLASK_APP': FLASK_APP,
+		'FLASK_DEBUG': 'true'
+	}))
 
-# if this is the main thread of execution first load the model and
-# then start the server
-if __name__ == "__main__":
-	print(("* Loading Keras model and Flask starting server...please wait until server has fully started"))
-	load_model()
-	app.run(host='0.0.0.0')
+cm.add(Command(
+	"livereload",
+	"runs dev server using livereload for dynamic webpage reloading",
+	lambda c: 'python -m flask run',
+	{
+		'FLASK_APP': FLASK_APP,
+		'FLASK_LIVE_RELOAD': 'true',
+	}))
+
+cm.add(Command(
+	"debug",
+	"runs dev server in debug mode; use with an IDE's remote debugger",
+	lambda c: 'python -m flask run --host={0} --port={1} --no-debugger --no-reload'.format(c['host'], c['port']),
+	{
+		'FLASK_APP': FLASK_APP,
+		'FLASK_DEBUG': 'true'
+	}))
+
+cm.add(Command(
+	"test",
+	"runs all tests inside of `tests` directory",
+	lambda c: 'python -m unittest discover -s tests -p "*.py"'))
+
+# Create and format argument parser for CLI
+parser = argparse.ArgumentParser(description=cm.availableCommands(),
+								 formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("subcommand", help="subcommand to run (see list above)")
+parser.add_argument("ipaddress", nargs='?', default=DEFAULT_IP,
+					help="address and port to run on (i.e. {0})".format(DEFAULT_IP))
+def livereload_check():
+	check = subprocess.call("lsof -n -i4TCP:3000", shell=True)
+	if (check == 0):
+		output = subprocess.check_output("pgrep Python", shell=True)
+		pypid = int(output)
+		os.kill(pypid, signal.SIGKILL)
+		print("Discovered rogue Python process: {0}".format(pypid))
+		print("Killing PID {0}...".format(pypid))
+	else:
+		print(" No rogue Python process running")
+
+# Take in command line input for configuration
+try:
+	args = parser.parse_args()
+	cmd = args.subcommand
+	addr = args.ipaddress.split(':')
+	cm.configure({
+		'host': addr[0],
+		'port': addr[1],
+	})
+	cm.run(cmd)
+except KeyboardInterrupt:
+	if 'FLASK_LIVE_RELOAD' in os.environ and os.environ['FLASK_LIVE_RELOAD'] == 'true':
+		livereload_check()
+except:
+	if len(sys.argv) == 1:
+		print(cm.availableCommands())
+	sys.exit(0)

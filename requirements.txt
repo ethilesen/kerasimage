@@ -3,4 +3,6 @@ gunicorn==19.7.1
 tensorflow
 keras
 Pillow
-prometheus
+prometheus_client
+ibmcloudenv
+livereload

@@ -1,10 +1,10 @@
 ---
 applications:
 - instances: 1
-  timeout: 180
+  timeout: 1180
   name: mypython
   buildpack: python_buildpack
-  command: python manage.py start 0.0.0.0:$PORT
+  command: python manage.py start 0.0.0.0:5000
   memory: 512M
   domain: not-used.net
   host: not-used
