@@ -34,6 +34,7 @@ def predict():
 	# view
 	data = {"success": False}
 
+
 	# ensure an image was properly uploaded to our endpoint
 	if flask.request.method == "POST":
 		if flask.request.files.get("image"):
@@ -48,6 +49,7 @@ def predict():
 			# of predictions to return to the client
 			preds = model.predict(image)
 			results = imagenet_utils.decode_predictions(preds)
+
 			data["predictions"] = []
 
 			# loop over the results and add them to the list of
@@ -60,6 +62,7 @@ def predict():
 			data["success"] = True
 
 	# return the data dictionary as a JSON response
+	print(flask.jsonify(data))
 	return flask.jsonify(data)
 print("* Loading Keras model and Flask starting server...please wait until server has fully started")
 load_model()

@@ -53,10 +53,10 @@ cm.add(Command(
 cm.add(Command(
 	"start",
 	"runs server with gunicorn in a production setting",
-	lambda c: 'gunicorn -t 300 -b {0}:{1} server:app'.format(c['host'], c['port']),
+	lambda c: 'gunicorn -t 300 -b {0}:{1} --access-logfile - --log-level debug server:app'.format(c['host'], c['port']),
 	{
 		'FLASK_APP': FLASK_APP,
-		'FLASK_DEBUG': 'false'
+		'FLASK_DEBUG': 'true'
 	}))
 
 cm.add(Command(
@@ -98,7 +98,7 @@ parser.add_argument("subcommand", help="subcommand to run (see list above)")
 parser.add_argument("ipaddress", nargs='?', default=DEFAULT_IP,
 					help="address and port to run on (i.e. {0})".format(DEFAULT_IP))
 def livereload_check():
-	check = subprocess.call("lsof -n -i4TCP:3000", shell=True)
+	check = subprocess.call("lsof -n -i4TCP:5000", shell=True)
 	if (check == 0):
 		output = subprocess.check_output("pgrep Python", shell=True)
 		pypid = int(output)
